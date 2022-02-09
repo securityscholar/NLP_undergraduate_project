@@ -1,0 +1,49 @@
+from __future__ import print_function
+import pyLDAvis
+import pyLDAvis.sklearn
+pyLDAvis.enable_notebook()
+from sklearn.datasets import fetch_20newsgroups
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.decomposition import LatentDirichletAllocation
+import pandas as pd
+import re
+
+df = pd.read_csv('C:/filepath/NLP_Cybersecurity_Fall_2021.csv')
+
+df['cleaned'] = df.cleaned.str.replace('[^a-zA-Z]', ' ')
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub(' c ', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub(' a ', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub(' u s', ' us', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub(' b ', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub('u s ', 'us', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub(' h r ', ' hr ', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub(' s ', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub(' h ', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub(' t ', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub(' k ', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub(' the ', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub(' d ', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub(' f ', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub(' dsk ', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub(' e ', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub(' sp ', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub(' mr ', '', x))
+
+tf_vectorizer = CountVectorizer(strip_accents = 'unicode',
+                                stop_words = 'english',
+                                lowercase = True,
+                                token_pattern = r'\b[a-zA-Z]{3,}\b',
+                                max_df = 0.5, 
+                                min_df = 10)
+dtm_tf = tf_vectorizer.fit_transform(df['cleaned'])
+tfidf_vectorizer = TfidfVectorizer(**tf_vectorizer.get_params())
+dtm_tfidf = tfidf_vectorizer.fit_transform(docs_raw)
+
+# for TF DTM
+lda_tf = LatentDirichletAllocation(n_components=20, random_state=0)
+lda_tf.fit(dtm_tf)
+# for TFIDF DTM
+lda_tfidf = LatentDirichletAllocation(n_components=20, random_state=0)
+lda_tfidf.fit(dtm_tfidf)
+
+pyLDAvis.sklearn.prepare(lda_tf, dtm_tf, tf_vectorizer, R=10)
