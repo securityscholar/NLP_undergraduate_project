@@ -1,0 +1,84 @@
+import os, glob
+from tika import parser 
+from pandas import DataFrame
+
+# What file extension to find, and where to look from
+ext = "*.pdf"
+PATH = "C:/LOCATION_HERE"
+
+# Find all the files with that extension
+files = []
+for dirpath, dirnames, filenames in os.walk(PATH):
+    files += glob.glob(os.path.join(dirpath, ext))
+
+# Create a Pandas Dataframe to hold the filenames and the text
+df = DataFrame(columns=("filename","text"))
+
+# Process each file in turn, parsing with Tika and storing in the dataframe
+for idx, filename in enumerate(files):
+   data = parser.from_file(filename)
+   text = data["content"]
+   df.loc[idx] = [filename, text]
+
+# For debugging, print what we found
+print(df)
+
+df.head(20)
+df['text'] = df['text'].replace('\n', '', regex=True)
+df['cleaned'] = df['text'].apply(str)
+df['cleaned'] = df['cleaned'].str.lower()
+df.head()
+
+from nltk.corpus import stopwords
+stop = stopwords.words('english')
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub('appendix', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub('frm', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub(' po ', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub('sfmt', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub('fmt', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub('jkt', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub('00000', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub(' sep ', '', x))
+df['cleaned'] = df['cleaned'].map(lambda x: re.sub('6652', '', x))
+df['cleaned'] = df['cleaned'].apply(lambda x: ' '.join([word for word in x.split() if word not in (stop)]))
+
+from collections import Counter
+Counter(" ".join(df["cleaned"]).split()).most_common(100)
+
+# Import the wordcloud library
+from wordcloud import WordCloud
+# Join the different processed titles together.
+long_string = ','.join(list(df['cleaned'].values))# Create a WordCloud object
+wordcloud = WordCloud(background_color="white", max_words=5000, contour_width=3, contour_color='steelblue')# Generate a word cloud
+wordcloud.generate(long_string)# Visualize the word cloud
+wordcloud.to_image()
+
+from sklearn.feature_extraction.text import CountVectorizer
+
+# the vectorizer object will be used to transform text to vector form
+vectorizer = CountVectorizer(max_df=0.9, min_df=25, token_pattern='\w+|\$[\d\.]+|\S+')
+
+# apply transformation
+tf = vectorizer.fit_transform(df['cleaned']).toarray()
+
+# tf_feature_names tells us what word each column in the matric represents
+tf_feature_names = vectorizer.get_feature_names()
+
+from sklearn.decomposition import LatentDirichletAllocation
+number_of_topics = 25
+model = LatentDirichletAllocation(n_components=number_of_topics, random_state=0)
+
+model.fit(tf)
+
+def display_topics(model, feature_names, no_top_words):
+    topic_dict = {}
+    for topic_idx, topic in enumerate(model.components_):
+        topic_dict["Topic %d words" % (topic_idx)]= ['{}'.format(feature_names[i])
+                        for i in topic.argsort()[:-no_top_words - 1:-1]]
+        topic_dict["Topic %d weights" % (topic_idx)]= ['{:.1f}'.format(topic[i])
+                        for i in topic.argsort()[:-no_top_words - 1:-1]]
+    return pd.DataFrame(topic_dict)
+    
+no_top_words = 7
+pd.options.display.max_columns = None
+display_topics(model, tf_feature_names, no_top_words)
